@@ -1,110 +1,96 @@
-Voici un développement plus approfondi des fonctionnalités à ajouter à votre projet d'authentification des utilisateurs en utilisant FastAPI. Chaque fonctionnalité est décrite avec des détails sur l'implémentation, les considérations de sécurité et les meilleures pratiques.
+# Mini-Auth API
 
-### 1. Inscription des utilisateurs
+Une alternative simplifiée à Supabase axée sur l'authentification et la gestion des utilisateurs.
 
-- **Endpoint** : `POST /auth/register`
-- **Fonctionnalités** :
-  - Recevoir les informations d'inscription (email, mot de passe, nom, etc.).
-  - Valider les données d'entrée (format de l'email, longueur du mot de passe, etc.).
-  - Hacher le mot de passe à l'aide d'une bibliothèque comme `bcrypt` ou `argon2`.
-  - Enregistrer l'utilisateur dans la base de données.
-  - Envoyer un email de vérification (optionnel).
-  
-- **Considérations de sécurité** :
-  - Utiliser des validations pour éviter les injections SQL.
-  - Limiter le nombre d'inscriptions par adresse IP pour éviter les abus.
+## Objectif
 
-### 2. Connexion des utilisateurs
+Créer une API backend qui permet aux développeurs de gérer l'authentification et les utilisateurs de leurs applications, avec des limites strictes (100 requêtes/minute, 100 utilisateurs maximum).
 
-- **Endpoint** : `POST /auth/login`
-- **Fonctionnalités** :
-  - Recevoir les informations d'identification (email, mot de passe).
-  - Vérifier si l'utilisateur existe dans la base de données.
-  - Comparer le mot de passe fourni avec le mot de passe haché stocké.
-  - Générer un token JWT pour la session de l'utilisateur.
-  - Retourner le token et éventuellement des informations sur l'utilisateur.
+## Architecture
 
-- **Considérations de sécurité** :
-  - Implémenter un mécanisme de verrouillage après plusieurs tentatives de connexion échouées.
-  - Utiliser HTTPS pour sécuriser les informations d'identification.
+### Structure des Dossiers
 
-### 3. Déconnexion des utilisateurs
+```
+/backend
+│── /app
+│   │── /api                 # Routeurs FastAPI
+│   │   │── /v1
+│   │   │   │── auth.py      # Authentification (OAuth2, JWT)
+│   │   │   │── projects.py  # Gestion des projets
+│   │   │   │── users.py     # Gestion des utilisateurs
+│   │── /core                # Configuration principale
+│   │   │── config.py        # Paramètres de l'application
+│   │   │── database.py      # Connexion à PostgreSQL
+│   │   │── security.py      # Gestion des tokens
+│   │── /models              # Modèles SQLAlchemy
+│   │── /schemas             # Schémas Pydantic
+│   │── /services            # Logique métier
+│   │── /middlewares         # Middlewares (rate limiting)
+│   │── main.py              # Point d'entrée
+```
 
-- **Endpoint** : `POST /auth/logout`
-- **Fonctionnalités** :
-  - Invalider le token JWT (si vous utilisez une liste noire pour les tokens).
-  - Optionnellement, supprimer la session de l'utilisateur dans la base de données.
+### Fonctionnalités Principales
 
-- **Considérations de sécurité** :
-  - Assurez-vous que le token est effectivement invalidé pour éviter les réutilisations.
+1. **Authentification des Administrateurs**
+   - Login/Register avec email/mot de passe
+   - JWT pour l'authentification
+   - Gestion des sessions
 
-### 4. Gestion des sessions
+2. **Gestion des Projets**
+   - Création de projets par admin
+   - Génération de clés API par projet
+   - Limites de ressources par projet
 
-- **Stockage des sessions** :
-  - Utiliser une base de données ou un cache (comme Redis) pour stocker les sessions.
-  - Implémenter des mécanismes pour gérer l'expiration des sessions (par exemple, un champ `expires_at` dans la base de données).
+3. **Gestion des Utilisateurs**
+   - Création d'utilisateurs par projet
+   - Authentification des utilisateurs
+   - Gestion des sessions utilisateurs
 
-- **Fonctionnalités** :
-  - Créer un middleware pour vérifier la validité du token JWT sur chaque requête.
-  - Gérer le rafraîchissement des tokens si nécessaire.
+### Limites et Quotas
 
-### 5. Récupération de mot de passe
+- 100 requêtes par minute par projet
+- 100 utilisateurs maximum par projet
+- Stockage limité par projet
 
-- **Endpoint** : `POST /auth/reset-password`
-- **Fonctionnalités** :
-  - Recevoir l'email de l'utilisateur.
-  - Générer un token de réinitialisation et l'envoyer par email.
-  - Créer un endpoint pour que l'utilisateur puisse définir un nouveau mot de passe en utilisant le token.
+### Technologies Utilisées
 
-- **Considérations de sécurité** :
-  - Le token de réinitialisation doit avoir une durée de vie limitée.
-  - Ne jamais exposer des informations sensibles dans les emails.
+- FastAPI (Python)
+- PostgreSQL (Base de données)
+- Redis (Rate limiting)
+- JWT (Authentification)
+- SQLAlchemy (ORM)
 
-### 6. Mise à jour des informations de l'utilisateur
+## Workflow
 
-- **Endpoint** : `PUT /users/me`
-- **Fonctionnalités** :
-  - Recevoir les nouvelles informations de l'utilisateur (email, mot de passe, etc.).
-  - Valider les nouvelles informations.
-  - Hacher le nouveau mot de passe si celui-ci est modifié.
-  - Mettre à jour les informations dans la base de données.
+1. L'administrateur crée un compte et se connecte
+2. Il crée un projet et reçoit une clé API
+3. Il peut créer des utilisateurs dans son projet
+4. Les utilisateurs peuvent s'authentifier via l'API
+5. Les requêtes sont limitées à 100/minute
+6. Le nombre d'utilisateurs est limité à 100
 
-- **Considérations de sécurité** :
-  - Vérifier que l'utilisateur est authentifié avant de permettre la mise à jour.
-  - Ne pas exposer les mots de passe en clair.
+## Sécurité
 
-### 7. Vérification de l'email
+- Authentification JWT pour les admins
+- Clés API pour les projets
+- Rate limiting avec Redis
+- Protection contre les attaques courantes
+- Validation des données avec Pydantic
 
-- **Endpoint** : `GET /auth/verify-email`
-- **Fonctionnalités** :
-  - Envoyer un email de vérification lors de l'inscription.
-  - Créer un endpoint pour que l'utilisateur puisse vérifier son email en utilisant un token.
+## API Endpoints
 
-- **Considérations de sécurité** :
-  - Le token de vérification doit être unique et avoir une durée de vie limitée.
+### Authentification
+- POST /auth/register
+- POST /auth/login
+- POST /auth/logout
 
-### 8. Sécurité
+### Projets
+- POST /projects
+- GET /projects
+- GET /projects/{id}
+- DELETE /projects/{id}
 
-- **Protection contre les attaques** :
-  - Implémenter des protections contre les attaques par force brute (limitation des tentatives de connexion).
-  - Utiliser des CAPTCHA pour les formulaires sensibles.
-  - Assurer que toutes les communications sont sécurisées via HTTPS.
-
-- **Audit et journalisation** :
-  - Journaliser les tentatives de connexion, les inscriptions et les modifications de compte pour détecter les comportements suspects.
-
-### 9. Documentation de l'API
-
-- **Utiliser Swagger** :
-  - FastAPI génère automatiquement une documentation interactive de l'API via Swagger UI.
-  - Documenter chaque endpoint avec des descriptions, des exemples de requêtes et de réponses.
-
-### 10. Tests
-
-- **Écrire des tests unitaires et d'intégration** :
-  - Tester chaque endpoint pour s'assurer qu'il fonctionne comme prévu.
-  - Tester les cas d'erreur (par exemple, informations d'identification incorrectes, données invalides).
-
-### Conclusion
-
-En développant ces fonctionnalités, vous créerez un système d'authentification complet et sécurisé. Cela vous permettra non seulement d'apprendre les concepts clés de l'authentification, mais aussi de vous familiariser avec FastAPI et les meilleures pratiques de développement d'API.
+### Utilisateurs
+- POST /projects/{id}/users
+- GET /projects/{id}/users
+- DELETE /projects/{id}/users/{user_id}

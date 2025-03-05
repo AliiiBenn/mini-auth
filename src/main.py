@@ -1,25 +1,20 @@
-from typing import Union
-
 from fastapi import FastAPI
-from api.auth import router as auth_router
+from api.v1 import admins
 
-# Import all models to ensure they're registered with Base
-from models.user import User
-from database import create_tables
+from models.base import Base
+from database import engine
 
-# Create tables after all models are imported
-create_tables()
+# Créer les tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-app.include_router(auth_router)
-
+# Inclure les routeurs
+app.include_router(admins.router, prefix="/api/v1/admins", tags=["admins"])
 
 @app.get("/")
 async def read_root():
     return {"Hello": "World"}
 
 
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
+
