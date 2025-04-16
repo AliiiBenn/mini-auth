@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
 from core.database import get_db, engine, Base
+from api.v1 import router as api_v1_router
+from core.middleware.auth import DashboardAuthMiddleware
 
 settings = get_settings()
 
@@ -21,6 +23,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add Dashboard Auth Middleware
+app.add_middleware(DashboardAuthMiddleware)
+
+# Include API v1 routes
+app.include_router(api_v1_router)
 
 # Create database tables
 @app.on_event("startup")

@@ -1,6 +1,23 @@
-from pydantic import BaseModel, UUID4, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+from pydantic import BaseModel, UUID4, Field
+
+class ProjectApiKeyBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+
+class ProjectApiKeyCreate(ProjectApiKeyBase):
+    pass
+
+class ProjectApiKey(ProjectApiKeyBase):
+    id: str
+    project_id: str
+    key: str
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
 
 class ProjectBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=50)
@@ -13,18 +30,8 @@ class ProjectUpdate(ProjectBase):
     name: Optional[str] = Field(None, min_length=3, max_length=50)
     is_active: Optional[bool] = None
 
-class ProjectApiKey(BaseModel):
-    key: str
-    name: str
-    created_at: datetime
-    last_used_at: Optional[datetime] = None
-    is_active: bool = True
-
-    class Config:
-        from_attributes = True
-
 class Project(ProjectBase):
-    id: UUID4
+    id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
     is_active: bool = True
