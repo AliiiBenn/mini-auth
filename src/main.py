@@ -1,8 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import get_settings
+from core.database import get_db, engine, Base
+
+settings = get_settings()
 
 app = FastAPI(
-    title="Mini Auth API",
+    title=settings.PROJECT_NAME,
     description="A minimalist authentication API built with FastAPI",
     version="1.0.0"
 )
@@ -16,8 +22,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Create database tables
+@app.on_event("startup")
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
 @app.get("/")
-async def root():
+async def root(db: AsyncSession = Depends(get_db)):
     return {"message": "Welcome to Mini Auth API"}
 
 if __name__ == "__main__":
