@@ -1,4 +1,4 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker, AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase
 
 # Utilisation de SQLite pour le développement
@@ -16,10 +16,11 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
     bind=engine,
     class_=AsyncSession,
+    expire_on_commit=False,  # Important for async operation
 )
 
 # Create base class for declarative models
-class Base(DeclarativeBase):
+class Base(AsyncAttrs, DeclarativeBase):
     pass
 
 # Dependency to get DB session

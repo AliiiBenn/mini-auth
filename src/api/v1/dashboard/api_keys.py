@@ -1,5 +1,4 @@
 from typing import List
-from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +15,7 @@ router = APIRouter(
 
 @router.post("", response_model=ProjectApiKey)
 async def create_api_key(
-    project_id: UUID,
+    project_id: str,
     name: str,
     db: AsyncSession = Depends(get_db)
 ) -> ProjectApiKey:
@@ -26,7 +25,7 @@ async def create_api_key(
 
 @router.get("", response_model=List[ProjectApiKey])
 async def list_api_keys(
-    project_id: UUID,
+    project_id: str,
     include_inactive: bool = False,
     db: AsyncSession = Depends(get_db)
 ) -> List[ProjectApiKey]:
@@ -38,8 +37,8 @@ async def list_api_keys(
 
 @router.delete("/{key_id}", response_model=bool)
 async def deactivate_api_key(
-    project_id: UUID,
-    key_id: UUID,
+    project_id: str,
+    key_id: str,
     db: AsyncSession = Depends(get_db)
 ) -> bool:
     """Deactivate an API key."""

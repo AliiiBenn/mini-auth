@@ -1,5 +1,4 @@
 from typing import Optional, List
-from uuid import UUID
 from datetime import datetime, UTC
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +8,7 @@ from core.security.tokens import generate_project_api_key
 
 async def create_api_key(
     db: AsyncSession,
-    project_id: UUID,
+    project_id: str,
     name: str
 ) -> ProjectApiKey:
     """Create a new API key for a project."""
@@ -25,7 +24,7 @@ async def create_api_key(
 
 async def get_project_api_keys(
     db: AsyncSession,
-    project_id: UUID,
+    project_id: str,
     include_inactive: bool = False
 ) -> List[ProjectApiKey]:
     """Get all API keys for a project."""
@@ -46,7 +45,7 @@ async def get_api_key(
 
 async def deactivate_api_key(
     db: AsyncSession,
-    key_id: UUID
+    key_id: str
 ) -> bool:
     """Deactivate an API key."""
     query = update(ProjectApiKey).where(
