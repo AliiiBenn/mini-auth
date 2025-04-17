@@ -29,4 +29,17 @@ async def get_db():
         try:
             yield session
         finally:
-            await session.close() 
+            await session.close()
+
+# Initialize database
+async def init_db():
+    """Create all tables in the database."""
+    async with engine.begin() as conn:
+        # Drop all tables if they exist
+        await conn.run_sync(Base.metadata.drop_all)
+        # Create all tables
+        await conn.run_sync(Base.metadata.create_all)
+
+# Export all models to ensure they are registered with Base.metadata
+from models.user import User, RefreshToken
+from models.project import Project, ProjectApiKey 
