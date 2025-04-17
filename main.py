@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import get_settings
 # from src.core.database import get_db, init_db
 
-# # Normal error
 from src.api.v1 import router as api_v1_router
 from src.api.v1.dashboard import router as dashboard_router
 
@@ -44,13 +43,13 @@ app.add_middleware(
 
 # Create a sub-application for dashboard routes with its own middleware
 dashboard_app = FastAPI()
-# dashboard_app.add_middleware(DashboardAuthMiddleware)
-# dashboard_app.include_router(dashboard_router)
+dashboard_app.add_middleware(DashboardAuthMiddleware)
+dashboard_app.include_router(dashboard_router)
 
 # Include API v1 routes
-# app.include_router(api_v1_router)
+app.include_router(api_v1_router)
 # Mount dashboard app with its middleware
-# app.mount("/api/v1/dashboard", dashboard_app)
+app.mount("/api/v1/dashboard", dashboard_app)
 
 @app.get("/")
 async def root():
