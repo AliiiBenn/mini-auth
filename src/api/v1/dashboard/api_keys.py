@@ -2,10 +2,10 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
-from core.middleware.auth import verify_dashboard_token
-from core.crud import api_key as api_key_crud
-from schemas.project import ProjectApiKey
+from src.core.database import get_db
+from src.core.middleware.auth import verify_dashboard_token
+from src.core.crud import api_key as api_key_crud
+from src.schemas.project import ProjectApiKey
 
 router = APIRouter(
     prefix="/dashboard/projects/{project_id}/api-keys",

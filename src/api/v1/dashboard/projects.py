@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from core.database import get_db
-from core.middleware.auth import verify_dashboard_token
-from core.crud import project as project_crud
-from core.crud import api_key as api_key_crud
-from schemas.project import (
+from src.core.database import get_db
+from src.core.middleware.auth import verify_dashboard_token
+from src.core.crud import project as project_crud
+from src.core.crud import api_key as api_key_crud
+from src.schemas.project import (
     Project,
     DashboardProjectCreate,
     ProjectUpdate,
