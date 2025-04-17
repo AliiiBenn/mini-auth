@@ -1,19 +1,14 @@
 {
   "builds": [
     {
-      "src": "src/main.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.9",
-        "installCommand": "pip install --upgrade pip && pip install -e ."
-      }
+      "src": "api/index.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "src/main.py"
+      "dest": "api/index.py"
     }
   ]
 } 
