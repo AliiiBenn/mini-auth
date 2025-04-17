@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Utiliser les imports absoluts depuis la racine du package src
 from src.core.config import get_settings
-from src.core.database import get_db, init_db
+# from src.core.database import get_db, init_db
 
 # # Normal error
 # from src.api.v1 import router as api_v1_router
@@ -18,13 +18,13 @@ from src.core.database import get_db, init_db
 
 settings = get_settings()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Initialize database
-    await init_db()
-    yield
-    # Shutdown: Clean up resources if needed
-    pass
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Startup: Initialize database
+#     await init_db()
+#     yield
+#     # Shutdown: Clean up resources if needed
+#     pass
 
 app = FastAPI(
     # title=settings.PROJECT_NAME,
