@@ -3,11 +3,11 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import get_settings
-from core.database import get_db, init_db
-from vercel_handler.v1 import router as api_v1_router
-from vercel_handler.v1.dashboard import router as dashboard_router
-from core.middleware.auth import DashboardAuthMiddleware
+from .core.config import get_settings
+from .core.database import get_db, init_db
+from .api.v1 import router as api_v1_router
+from .api.v1.dashboard import router as dashboard_router
+from .core.middleware.auth import DashboardAuthMiddleware
 
 settings = get_settings()
 
