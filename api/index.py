@@ -7,13 +7,20 @@ project_root = Path(__file__).resolve().parent.parent
 # Détermine le chemin vers le dossier 'src'
 src_dir = project_root / "src"
 
-# Ajoute le dossier 'src' au début de sys.path si ce n'est pas déjà fait
+# Ajoute le dossier racine ET le dossier 'src' au début de sys.path
+# Mettre la racine en premier permet de résoudre 'api.v1'
+# Mettre src ensuite permet de résoudre les imports internes comme 'core.config'
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 if str(src_dir) not in sys.path:
-    sys.path.insert(0, str(src_dir))
+    sys.path.insert(1, str(src_dir)) # Insérer en 2ème position
 
 # Importe l'application FastAPI depuis src/main.py
-# Comme 'src' est maintenant dans sys.path, on peut importer 'main' directement
+# Python devrait maintenant pouvoir trouver 'main' via src_dir
+# et 'main' devrait pouvoir trouver 'api.v1' via project_root
 try:
+    # L'importation doit être relative au PYTHONPATH
+    # Comme 'src' est dans le path, on importe 'main'
     from main import app
 except ImportError as e:
     print(f"ERREUR: Impossible d'importer l'application depuis src/main.py.")
