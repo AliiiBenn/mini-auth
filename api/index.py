@@ -7,17 +7,15 @@ project_root = Path(__file__).resolve().parent.parent
 # Détermine le chemin vers le dossier 'src'
 src_dir = project_root / "src"
 
-# Ajoute le dossier racine du projet au PYTHONPATH
-# Cela permet d'importer 'src' comme un package
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+# Ajoute le dossier 'src' au début de sys.path si ce n'est pas déjà fait
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
 
-# Importe l'application FastAPI depuis src/main.py
+# Importe l'application FastAPI depuis le module main (qui est maintenant directement accessible)
 try:
-    # Importe explicitement depuis le package src
-    from src.main import app
+    from main import app
 except ImportError as e:
-    print(f"ERREUR: Impossible d'importer l'application depuis src.main.")
+    print(f"ERREUR: Impossible d'importer l'application depuis main.py (dans src).")
     print(f"PYTHONPATH actuel: {sys.path}")
     print(f"Erreur originale: {e}")
     # Renvoyer l'erreur pour que Vercel l'affiche
