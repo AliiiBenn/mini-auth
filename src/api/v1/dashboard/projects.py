@@ -9,7 +9,7 @@ from core.crud import project as project_crud
 from core.crud import api_key as api_key_crud
 from schemas.project import (
     Project,
-    ProjectCreate,
+    DashboardProjectCreate,
     ProjectUpdate,
     ProjectList,
     ProjectApiKey
@@ -46,11 +46,15 @@ def project_to_dict(project) -> Dict[str, Any]:
 
 @router.post("", response_model=Project)
 async def create_project(
-    project_data: ProjectCreate,
+    project_data: DashboardProjectCreate,
     db: AsyncSession = Depends(get_db)
 ) -> Project:
-    """Create a new project."""
-    db_project = await project_crud.create_project(db, project_data)
+    """Create a new project via dashboard."""
+    db_project = await project_crud.create_project(
+        db=db, 
+        project_data=project_data, 
+        owner_id=project_data.owner_id
+    )
     project_dict = project_to_dict(db_project)
     return Project.model_validate(project_dict)
 

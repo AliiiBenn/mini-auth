@@ -1,12 +1,15 @@
 from datetime import datetime, UTC
 import uuid
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
 from models.project import ProjectMember
+
+if TYPE_CHECKING:
+    from models.project import Project
 
 class User(Base):
     __tablename__ = "users"

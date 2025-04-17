@@ -5,12 +5,12 @@ from sqlalchemy.orm import selectinload
 
 from models.project import Project, ProjectApiKey, ProjectMember
 from models.user import User
-from schemas.project import ProjectCreate, ProjectUpdate, ProjectMemberCreate
+from schemas.project import ProjectCreate, ProjectUpdate, ProjectMemberCreate, ProjectBase
 from core.security.tokens import generate_project_api_key
 
 async def create_project(
     db: AsyncSession,
-    project_data: ProjectCreate,
+    project_data: ProjectBase,
     owner_id: str,
     initial_api_key_name: str = "Default"
 ) -> Project:
@@ -44,6 +44,7 @@ async def create_project(
         select(Project)
         .options(selectinload(Project.api_keys))
         .options(selectinload(Project.owner))
+        .options(selectinload(Project.members))
         .where(Project.id == project_id)
     )
     result = await db.execute(query)
