@@ -3,7 +3,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
 
-from core.config import get_settings
+from src.core.config import get_settings
 
 settings = get_settings()
 
