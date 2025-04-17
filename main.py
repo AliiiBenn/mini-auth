@@ -1,15 +1,26 @@
-# main.py (à la racine) - Peut être utilisé pour exécution locale ou outils
+from fastapi import FastAPI
+import os
+import uvicorn
+app = FastAPI()
 
-# Importe l'application principale pour la rendre accessible si ce fichier est exécuté
-try:
-    from src.main import app
-except ImportError:
-    print("Assurez-vous que le dossier src est dans le PYTHONPATH pour exécuter ce fichier.")
-    # Gérer l'erreur ou simplement passer si ce fichier n'est pas destiné à être exécuté directement
-    pass 
+
+
 
 if __name__ == "__main__":
-    print("Pour lancer l'application localement, exécutez : uvicorn src.main:app --reload")
-    # Ou décommentez pour lancer directement (nécessite PYTHONPATH correct)
-    # import uvicorn
-    # uvicorn.run("src.main:app", host="127.0.0.1", port=8000, reload=True) 
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        reload_dirs=[os.path.dirname(os.path.abspath(__file__))],
+        reload_excludes=[
+            "*/.git/*",
+            "*/__pycache__/*",
+            "*.pyc",
+            "*/.pytest_cache/*",
+            "*/.vscode/*",
+            "*/.idea/*"
+        ],
+        reload_delay=1,
+        reload_includes=["*.py", "*.html", "*.css", "*.js"]
+    )
