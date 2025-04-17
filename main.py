@@ -30,7 +30,7 @@ app = FastAPI(
     # title=settings.PROJECT_NAME,
     description="A minimalist authentication API built with FastAPI",
     version="1.0.0",
-    lifespan=lifespan
+    # lifespan=lifespan
 )
 
 # Configure CORS
