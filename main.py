@@ -11,10 +11,10 @@ from src.core.config import get_settings
 # from src.core.database import get_db, init_db
 
 # # Normal error
-# from src.api.v1 import router as api_v1_router
-# from src.api.v1.dashboard import router as dashboard_router
+from src.api.v1 import router as api_v1_router
+from src.api.v1.dashboard import router as dashboard_router
 
-# from src.core.middleware.auth import DashboardAuthMiddleware
+from src.core.middleware.auth import DashboardAuthMiddleware
 
 settings = get_settings()
 
