@@ -41,5 +41,5 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 # Export all models to ensure they are registered with Base.metadata
-from models.user import User, RefreshToken
-from models.project import Project, ProjectApiKey 
+from src.models.user import User, RefreshToken
+from src.models.project import Project, ProjectApiKey 
