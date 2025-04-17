@@ -3,11 +3,15 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .core.config import get_settings
-from .core.database import get_db, init_db
-from .api.v1 import router as api_v1_router
-from .api.v1.dashboard import router as dashboard_router
-from .core.middleware.auth import DashboardAuthMiddleware
+# Utiliser les imports absoluts depuis la racine du package src
+from core.config import get_settings
+from core.database import get_db, init_db
+
+# Normal error
+from api.v1 import router as api_v1_router
+from api.v1.dashboard import router as dashboard_router
+
+from core.middleware.auth import DashboardAuthMiddleware
 
 settings = get_settings()
 
@@ -49,9 +53,12 @@ app.mount("/api/v1/dashboard", dashboard_app)
 async def root(db: AsyncSession = Depends(get_db)):
     return {"message": "Welcome to Mini Auth API"}
 
+# Garder cette partie pour l'exécution locale si nécessaire
 if __name__ == "__main__":
+    # Pour l'exécution locale directe, les imports relatifs pourraient échouer
+    # S'assurer que le PYTHONPATH est correctement configuré ou exécuter avec python -m src.main
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
 
-# Export the app variable for Vercel
+# Export the app variable for Vercel (utilisé par api/index.py)
 app = app 
