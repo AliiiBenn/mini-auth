@@ -3,10 +3,10 @@ from fastapi import Depends, HTTPException, status, Cookie, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
-from core.security.jwt import decode_token, verify_token_type
-from core.crud.user import get_user_by_id
-from models.user import User
+from src.core.database import get_db
+from src.core.security.jwt import decode_token, verify_token_type
+from src.core.crud.user import get_user_by_id
+from src.models.user import User
 
 # Configuration du bearer token
 oauth2_scheme = HTTPBearer(auto_error=False)

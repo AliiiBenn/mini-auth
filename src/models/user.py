@@ -5,11 +5,11 @@ from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from core.database import Base
-from models.project import ProjectMember
+from src.core.database import Base
+from src.models.project import ProjectMember
 
 if TYPE_CHECKING:
-    from models.project import Project
+    from src.models.project import Project
 
 class User(Base):
     __tablename__ = "users"

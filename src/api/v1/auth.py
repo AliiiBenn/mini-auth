@@ -4,16 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
-from core.security.password import hash_password, verify_password, is_password_strong
-from core.security.jwt import create_access_token, create_refresh_token
-from core.crud.user import get_user_by_email, create_user, get_user_by_id
-from core.crud.auth import create_refresh_token as create_db_refresh_token
-from core.crud.auth import revoke_refresh_token, revoke_user_refresh_tokens
-from core.dependencies.auth import get_current_user, validate_refresh_token
-from schemas.user import UserCreate, UserRead
-from schemas.auth import Token
-from models.user import User
+from src.core.database import get_db
+from src.core.security.password import hash_password, verify_password, is_password_strong
+from src.core.security.jwt import create_access_token, create_refresh_token
+from src.core.crud.user import get_user_by_email, create_user, get_user_by_id
+from src.core.crud.auth import create_refresh_token as create_db_refresh_token
+from src.core.crud.auth import revoke_refresh_token, revoke_user_refresh_tokens
+from src.core.dependencies.auth import get_current_user, validate_refresh_token
+from src.schemas.user import UserCreate, UserRead
+from src.schemas.auth import Token
+from src.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

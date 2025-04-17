@@ -2,9 +2,9 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
-from core.dependencies.auth import get_current_user
-from core.crud.project import (
+from src.core.database import get_db
+from src.core.dependencies.auth import get_current_user
+from src.core.crud.project import (
     create_project,
     get_project,
     get_user_projects,
@@ -15,7 +15,7 @@ from core.crud.project import (
     remove_project_member,
     update_project_member_role
 )
-from schemas.project import (
+from src.schemas.project import (
     Project,
     ProjectCreate,
     ProjectUpdate,
@@ -23,7 +23,7 @@ from schemas.project import (
     ProjectMember,
     ProjectMemberCreate
 )
-from models.user import User
+from src.models.user import User
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 

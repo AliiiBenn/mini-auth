@@ -3,10 +3,10 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from models.project import Project, ProjectApiKey, ProjectMember
-from models.user import User
-from schemas.project import ProjectCreate, ProjectUpdate, ProjectMemberCreate, ProjectBase
-from core.security.tokens import generate_project_api_key
+from src.models.project import Project, ProjectApiKey, ProjectMember
+from src.models.user import User
+from src.schemas.project import ProjectCreate, ProjectUpdate, ProjectMemberCreate, ProjectBase
+from src.core.security.tokens import generate_project_api_key
 
 async def create_project(
     db: AsyncSession,

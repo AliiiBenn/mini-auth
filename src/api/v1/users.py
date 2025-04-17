@@ -2,12 +2,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
-from core.dependencies.auth import get_current_user
-from core.crud.user import get_user_by_id, update_user, update_user_password
-from core.security.password import hash_password, verify_password, is_password_strong
-from schemas.user import UserRead, UserUpdate
-from models.user import User
+from src.core.database import get_db
+from src.core.dependencies.auth import get_current_user
+from src.core.crud.user import get_user_by_id, update_user, update_user_password
+from src.core.security.password import hash_password, verify_password, is_password_strong
+from src.schemas.user import UserRead, UserUpdate
+from src.models.user import User
 
 router = APIRouter(prefix="/users", tags=["users"])
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from .api_key import ProjectApiKey
+from src.schemas.api_key import ProjectApiKey
 
 class ProjectMemberBase(BaseModel):
     role: str = Field(default="member", pattern="^(member|admin)$")

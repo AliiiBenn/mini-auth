@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.user import RefreshToken
+from src.models.user import RefreshToken
 
 async def create_refresh_token(
     db: AsyncSession,

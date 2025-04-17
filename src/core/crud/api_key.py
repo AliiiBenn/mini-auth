@@ -3,8 +3,8 @@ from datetime import datetime, UTC
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.project import ProjectApiKey
-from core.security.tokens import generate_project_api_key
+from src.models.project import ProjectApiKey
+from src.core.security.tokens import generate_project_api_key
 
 async def create_api_key(
     db: AsyncSession,

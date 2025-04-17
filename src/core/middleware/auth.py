@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from core.config import get_settings
+from src.core.config import get_settings
 
 settings = get_settings()
 security = HTTPBearer(auto_error=False)

@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from models.user import User
-from schemas.user import UserCreate, UserUpdate
+from src.models.user import User
+from src.schemas.user import UserCreate, UserUpdate
 
 async def get_user_by_email(
     db: AsyncSession,
