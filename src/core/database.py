@@ -32,10 +32,7 @@ class Base(AsyncAttrs, DeclarativeBase):
 # Dependency to get DB session
 async def get_db():
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session # Just yield the session
 
 # Initialize database
 async def init_db():
