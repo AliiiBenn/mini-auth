@@ -55,7 +55,7 @@ class Project(Base):
     )
 
     # Relationships
-    owner: Mapped[Optional["User"]] = relationship("User", back_populates="projects")
+    owner: Mapped[Optional["User"]] = relationship("User", back_populates="projects", foreign_keys=[owner_id])
     api_keys: Mapped[List["ProjectApiKey"]] = relationship(
         "ProjectApiKey", back_populates="project", cascade="all, delete-orphan"
     )
