@@ -115,7 +115,7 @@ async def login(
             value=access_token,
             httponly=True,
             secure=True, # Set to True in production with HTTPS
-            samesite="lax",
+            samesite="none",
             max_age=3600  # 1 heure
         )
         response.set_cookie(
@@ -123,7 +123,7 @@ async def login(
             value=refresh_token,
             httponly=True,
             secure=True, # Set to True in production with HTTPS
-            samesite="lax",
+            samesite="none",
             max_age=604800  # 7 jours
         )
         logger.info(f"Cookies set for user: {user.email}")
