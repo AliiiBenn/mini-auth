@@ -13,9 +13,7 @@ cleaned_db_url = settings.DATABASE_URL.split('?')[0]
 engine = create_async_engine(
     cleaned_db_url,
     echo=True, # Set to False in production for less noise
-    connect_args={"ssl": "require"}, # Correct way to pass ssl for asyncpg
-    pool_pre_ping=True, # Added pool_pre_ping
-    asyncio_mode="native" # Force native asyncio mode
+    connect_args={"ssl": "require"} # Correct way to pass ssl for asyncpg
 )
 
 # Create async session factory
