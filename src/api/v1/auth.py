@@ -129,13 +129,13 @@ async def login(
             refresh_token=refresh_token,
             token_type="bearer"
         )
-    except Exception as e:
-        # Log any unexpected exception before raising HTTP 500
-        logger.exception(f"Unexpected error during login for {form_data.username}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An internal error occurred during login."
-        )
+    # except Exception as e:
+    #     # Log any unexpected exception before raising HTTP 500
+    #     logger.exception(f"Unexpected error during login for {form_data.username}: {e}")
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail="An internal error occurred during login."
+    #     )
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
