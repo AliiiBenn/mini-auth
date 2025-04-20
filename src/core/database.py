@@ -67,6 +67,9 @@ def get_db_sync(): # Synchronous dependency
     finally:
         db.close()
 
+def get_async_session_factory(): # Dependency for the async session factory
+    return AsyncSessionLocal
+
 # Initialize database (using async engine)
 async def init_db():
     """Create all tables in the database if they don't exist."""

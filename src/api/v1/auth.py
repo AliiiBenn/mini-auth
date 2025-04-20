@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from src.core.database import get_db, get_db_sync
+from src.core.database import get_db, get_db_sync, get_async_session_factory
 from src.core.security.password import hash_password, verify_password, is_password_strong
 from src.core.security.jwt import create_access_token, create_refresh_token
 from src.core.crud.user import get_user_by_email, get_user_by_email_sync, create_user, get_user_by_id
@@ -21,25 +23,6 @@ from src.models.user import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-# --- Helper Function for Async DB Operation ---
-async def _store_refresh_token_async(
-    user_id: str,
-    token: str,
-    expires_delta: timedelta,
-    user_agent: Optional[str],
-    db: AsyncSession = Depends(get_db) # Use standard async dependency
-):
-    """Helper to store refresh token using an async session managed by FastAPI."""
-    logger.info(f"[HELPER] Storing refresh token for user: {user_id}")
-    await create_db_refresh_token(
-        db=db,
-        user_id=user_id,
-        token=token,
-        expires_delta=expires_delta,
-        user_agent=user_agent
-    )
-    logger.info(f"[HELPER] Refresh token stored successfully for user: {user_id}")
 
 @router.post("/register", response_model=UserRead)
 async def register(
@@ -81,14 +64,15 @@ async def register(
 async def login(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db_sync), # Use sync dependency for user lookup
+    db_sync: Session = Depends(get_db_sync), # Use sync dependency for user lookup
+    async_session_factory: async_sessionmaker[AsyncSession] = Depends(get_async_session_factory), # Inject async factory
     user_agent: Optional[str] = None
 ) -> Token:
     """Login platform user (project_id=None) and return tokens."""
     try:
         logger.info(f"Attempting login for user: {form_data.username}")
         # Verify platform user using sync function
-        user = get_user_by_email_sync(db, form_data.username, project_id=None)
+        user = get_user_by_email_sync(db_sync, form_data.username, project_id=None) # Use sync db
         logger.info(f"User found: {bool(user)}")
         
         if not user or not verify_password(form_data.password, user.hashed_password):
@@ -109,18 +93,21 @@ async def login(
             )
         
         logger.info(f"User {user.email} is active. Creating tokens...")
-        # Token creation is CPU-bound, okay here
         access_token = create_access_token(subject=user.id)
         refresh_token = create_refresh_token(subject=user.id)
         logger.info(f"Tokens created for user: {user.email}")
         
-        # Store the refresh token using the async helper function
-        await _store_refresh_token_async(
-            user_id=user.id,
-            token=refresh_token,
-            expires_delta=timedelta(days=7), # TODO: Use settings
-            user_agent=user_agent
-        )
+        # Store the refresh token using a managed async session from the factory
+        async with async_session_factory() as async_session:
+            logger.info(f"Storing refresh token for user: {user.email} using managed async session")
+            await create_db_refresh_token(
+                db=async_session, # Pass the created async session
+                user_id=user.id,
+                token=refresh_token,
+                expires_delta=timedelta(days=7), # TODO: Use settings
+                user_agent=user_agent
+            )
+            logger.info(f"Refresh token stored successfully for user: {user.email}")
                 
         # Cookie setting is fine
         response.set_cookie(
