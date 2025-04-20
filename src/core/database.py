@@ -26,10 +26,23 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 # --- Sync Configuration ---
+# Construct sync URL by replacing the dialect part
+if settings.DATABASE_URL.startswith("postgresql+asyncpg://"):
+    sync_db_url_base = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+else: # Assume default or other, try replacing just postgresql:// if needed
+    # This might need adjustment based on the actual DATABASE_URL format
+    sync_db_url_base = settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+# Remove query parameters like sslmode for psycopg2 DSN
+sync_db_url = sync_db_url_base.split('?')[0]
+
 sync_engine = create_engine(
-    cleaned_db_url, # Use cleaned URL
+    sync_db_url,
     echo=True,
     pool_recycle=1800
+    # Note: psycopg2 handles sslmode within the DSN string itself or via service files/env vars,
+    # it doesn't typically take connect_args like asyncpg for basic sslmode.
+    # Ensure your DATABASE_URL correctly includes necessary components or rely on env vars (PGSSLMODE).
 )
 
 SyncSessionLocal = sessionmaker(
