@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker, AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import create_engine
 from src.core.config import get_settings # Import settings
 
 # Get settings instance
@@ -8,38 +9,58 @@ settings = get_settings()
 # Clean the DATABASE_URL to remove sslmode if present, as it's handled by connect_args
 cleaned_db_url = settings.DATABASE_URL.split('?')[0]
 
-# Create async engine using cleaned DATABASE_URL from settings
-# Pass ssl argument via connect_args for asyncpg
-engine = create_async_engine(
-    cleaned_db_url,
-    echo=True, # Set to False in production for less noise
-    connect_args={"ssl": "require"}, # Correct way to pass ssl for asyncpg
-    pool_recycle=1800 # Added pool_recycle (30 minutes)
+# --- Async Configuration ---
+async_engine = create_async_engine(
+    settings.DATABASE_URL, # Use original URL with query params for asyncpg
+    echo=True,
+    connect_args={"ssl": "require"}, # SSL handled via connect_args
+    pool_recycle=1800
 )
 
-# Create async session factory
 AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine,
+    bind=async_engine,
     class_=AsyncSession,
-    expire_on_commit=False,  # Important for async operation
+    expire_on_commit=False,
 )
 
-# Create base class for declarative models
+# --- Sync Configuration ---
+# Use cleaned URL (without sslmode query param)
+# psycopg2 (default sync driver for postgresql://) handles sslmode in the URL
+sync_db_url = settings.DATABASE_URL # Assume DATABASE_URL includes sslmode=require for sync driver
+sync_engine = create_engine(
+    sync_db_url,
+    echo=True,
+    pool_recycle=1800
+)
+
+SyncSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=sync_engine
+)
+
+# --- Base Class ---
 class Base(AsyncAttrs, DeclarativeBase):
     pass
 
-# Dependency to get DB session
+# --- Dependencies ---
 async def get_db():
     async with AsyncSessionLocal() as session:
-        yield session # Just yield the session
+        yield session
 
-# Initialize database
+def get_db_sync(): # Synchronous dependency
+    db = SyncSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Initialize database (using async engine)
 async def init_db():
     """Create all tables in the database if they don't exist."""
-    async with engine.begin() as conn:
-        # Create all tables defined inheriting from Base
+    async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 # REMOVED: Export all models to ensure they are registered with Base.metadata

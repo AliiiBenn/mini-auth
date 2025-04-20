@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Session
 import logging
 
 from src.models.user import User
@@ -117,4 +117,25 @@ async def get_users(
     query = query.where(User.project_id == project_id)
         
     result = await db.execute(query)
-    return list(result.scalars().all()) 
+    return list(result.scalars().all())
+
+# --- Synchronous Version for Login ---
+def get_user_by_email_sync(
+    db: Session, # Use sync Session type hint
+    email: str,
+    project_id: Optional[str] = None
+) -> Optional[User]:
+    """Synchronous version to get a user by email."""
+    logger.debug(f"[SYNC] Executing query for user email={email}, project_id={project_id}")
+    try:
+        user = db.query(User).filter(
+            and_(
+                User.email == email,
+                User.project_id == project_id
+            )
+        ).one_or_none()
+        logger.debug(f"[SYNC] Returning user: {bool(user)} for email={email}, project_id={project_id}")
+        return user
+    except Exception as e:
+        logger.exception(f"[SYNC] Exception during get_user_by_email_sync for {email}, project_id={project_id}: {e}")
+        raise 

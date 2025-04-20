@@ -4,11 +4,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from src.core.database import get_db
+from src.core.database import get_db, get_db_sync
 from src.core.security.password import hash_password, verify_password, is_password_strong
 from src.core.security.jwt import create_access_token, create_refresh_token
-from src.core.crud.user import get_user_by_email, create_user, get_user_by_id
+from src.core.crud.user import get_user_by_email, get_user_by_email_sync, create_user, get_user_by_id
 from src.core.crud.auth import create_refresh_token as create_db_refresh_token
 from src.core.crud.auth import revoke_refresh_token, revoke_user_refresh_tokens
 from src.core.dependencies.auth import get_current_user, validate_refresh_token
@@ -61,14 +62,14 @@ async def register(
 async def login(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db),
-    user_agent: Optional[str] = None # Consider getting user_agent from Request headers
+    db: Session = Depends(get_db_sync),
+    user_agent: Optional[str] = None
 ) -> Token:
     """Login platform user (project_id=None) and return tokens."""
     try:
         logger.info(f"Attempting login for user: {form_data.username}")
-        # Verify platform user (project_id=None)
-        user = await get_user_by_email(db, form_data.username, project_id=None)
+        # Verify platform user (project_id=None) using sync function
+        user = get_user_by_email_sync(db, form_data.username, project_id=None)
         logger.info(f"User found: {bool(user)}")
         
         if not user or not verify_password(form_data.password, user.hashed_password):
@@ -89,23 +90,29 @@ async def login(
             )
         
         logger.info(f"User {user.email} is active. Creating tokens...")
-        # Créer les tokens
+        # Token creation is CPU-bound, okay here
         access_token = create_access_token(subject=user.id)
         refresh_token = create_refresh_token(subject=user.id)
         logger.info(f"Tokens created for user: {user.email}")
         
-        # Stocker le refresh token en base
-        logger.info(f"Storing refresh token for user: {user.email}")
-        await create_db_refresh_token(
-            db=db,
-            user_id=user.id,
-            token=refresh_token,
-            expires_delta=timedelta(days=7),
-            user_agent=user_agent
-        )
-        logger.info(f"Refresh token stored successfully for user: {user.email}")
+        # Storing the refresh token needs the ASYNC session
+        # We need to get an async session here specifically for this call
+        # This mixes dependencies, which isn't ideal but necessary for this fix
+        async_db: AsyncSession = await anext(get_db())
+        try:
+            logger.info(f"Storing refresh token for user: {user.email}")
+            await create_db_refresh_token(
+                db=async_db,
+                user_id=user.id,
+                token=refresh_token,
+                expires_delta=timedelta(days=7),
+                user_agent=user_agent
+            )
+            logger.info(f"Refresh token stored successfully for user: {user.email}")
+        finally:
+            await async_db.close()
         
-        # Définir les cookies
+        # Cookie setting is fine
         response.set_cookie(
             key="access_token",
             value=access_token,
