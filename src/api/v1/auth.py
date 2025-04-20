@@ -1,3 +1,4 @@
+import logging # Import logging
 from datetime import timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
@@ -14,6 +15,9 @@ from src.core.dependencies.auth import get_current_user, validate_refresh_token
 from src.schemas.user import UserCreate, UserRead
 from src.schemas.auth import Token
 from src.models.user import User
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -61,59 +65,77 @@ async def login(
     user_agent: Optional[str] = None # Consider getting user_agent from Request headers
 ) -> Token:
     """Login platform user (project_id=None) and return tokens."""
-    # Verify platform user (project_id=None)
-    user = await get_user_by_email(db, form_data.username, project_id=None)
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        logger.info(f"Attempting login for user: {form_data.username}")
+        # Verify platform user (project_id=None)
+        user = await get_user_by_email(db, form_data.username, project_id=None)
+        logger.info(f"User found: {bool(user)}")
+        
+        if not user or not verify_password(form_data.password, user.hashed_password):
+            logger.warning(f"Login failed: Incorrect email or password for {form_data.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        logger.info(f"Password verified for user: {user.email}")
+        if not user.is_active:
+            logger.warning(f"Login failed: User {user.email} is inactive")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User is inactive",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        logger.info(f"User {user.email} is active. Creating tokens...")
+        # Créer les tokens
+        access_token = create_access_token(subject=user.id)
+        refresh_token = create_refresh_token(subject=user.id)
+        logger.info(f"Tokens created for user: {user.email}")
+        
+        # Stocker le refresh token en base
+        logger.info(f"Storing refresh token for user: {user.email}")
+        await create_db_refresh_token(
+            db=db,
+            user_id=user.id,
+            token=refresh_token,
+            expires_delta=timedelta(days=7),
+            user_agent=user_agent
         )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User is inactive",
-            headers={"WWW-Authenticate": "Bearer"},
+        logger.info(f"Refresh token stored successfully for user: {user.email}")
+        
+        # Définir les cookies
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True, # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=3600  # 1 heure
         )
-    
-    # Créer les tokens
-    access_token = create_access_token(subject=user.id)
-    refresh_token = create_refresh_token(subject=user.id)
-    
-    # Stocker le refresh token en base
-    await create_db_refresh_token(
-        db=db,
-        user_id=user.id,
-        token=refresh_token,
-        expires_delta=timedelta(days=7),
-        user_agent=user_agent
-        # Consider adding project_id=None here if RefreshToken is scoped
-    )
-    
-    # Définir les cookies
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True, # Set to True in production with HTTPS
-        samesite="lax",
-        max_age=3600  # 1 heure
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=True, # Set to True in production with HTTPS
-        samesite="lax",
-        max_age=604800  # 7 jours
-    )
-    
-    return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer"
-    )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True, # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=604800  # 7 jours
+        )
+        logger.info(f"Cookies set for user: {user.email}")
+        
+        return Token(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer"
+        )
+    except Exception as e:
+        # Log any unexpected exception before raising HTTP 500
+        logger.exception(f"Unexpected error during login for {form_data.username}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during login."
+        )
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
