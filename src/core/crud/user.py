@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -9,10 +9,16 @@ from src.schemas.user import UserCreate, UserUpdate
 
 async def get_user_by_email(
     db: AsyncSession,
-    email: str
+    email: str,
+    project_id: Optional[str] = None
 ) -> Optional[User]:
-    """Get a user by email."""
-    query = select(User).where(User.email == email)
+    """Get a user by email, scoped by project_id if provided."""
+    query = select(User).where(
+        and_(
+            User.email == email,
+            User.project_id == project_id
+        )
+    )
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
@@ -24,7 +30,9 @@ async def get_user_by_id(
     query = (
         select(User)
         .options(selectinload(User.refresh_tokens))
-        .options(selectinload(User.projects))
+        .options(selectinload(User.projects_owned))
+        .options(selectinload(User.project_memberships))
+        .options(selectinload(User.project))
         .where(User.id == user_id)
     )
     result = await db.execute(query)
@@ -33,13 +41,15 @@ async def get_user_by_id(
 async def create_user(
     db: AsyncSession,
     user_data: UserCreate,
-    hashed_password: str
+    hashed_password: str,
+    project_id: Optional[str] = None
 ) -> User:
-    """Create a new user."""
+    """Create a new user, associating with project_id if provided."""
     db_user = User(
         email=user_data.email,
         full_name=user_data.full_name,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        project_id=project_id
     )
     db.add(db_user)
     await db.commit()
@@ -52,7 +62,7 @@ async def update_user(
     user_data: UserUpdate
 ) -> User:
     """Update a user's information."""
-    update_data = user_data.model_dump(exclude_unset=True)
+    update_data = user_data.model_dump(exclude_unset=True, exclude={'project_id'})
     
     for field, value in update_data.items():
         # Skip password as it needs special handling
@@ -87,13 +97,12 @@ async def deactivate_user(
 async def get_users(
     db: AsyncSession,
     skip: int = 0,
-    limit: int = 100
+    limit: int = 100,
+    project_id: Optional[str] = None
 ) -> List[User]:
-    """Get a list of users."""
-    query = (
-        select(User)
-        .offset(skip)
-        .limit(limit)
-    )
+    """Get a list of users, optionally filtering by project_id."""
+    query = select(User).offset(skip).limit(limit)
+    query = query.where(User.project_id == project_id)
+        
     result = await db.execute(query)
     return list(result.scalars().all()) 

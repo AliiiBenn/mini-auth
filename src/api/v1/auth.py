@@ -22,12 +22,13 @@ async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ) -> UserRead:
-    """Register a new user."""
-    # Vérifier si l'email existe déjà
-    if await get_user_by_email(db, user_data.email):
+    """Register a new platform user (project_id=None)."""
+    # Check if email already exists for platform users (project_id=None)
+    existing_user = await get_user_by_email(db, user_data.email, project_id=None)
+    if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Email already registered for platform user"
         )
     
     # Vérifier que les mots de passe correspondent
@@ -46,9 +47,9 @@ async def register(
             detail="Password is not strong enough"
         )
     
-    # Créer l'utilisateur
+    # Create the platform user (project_id=None)
     hashed_password = hash_password(user_data.password)
-    user = await create_user(db, user_data, hashed_password)
+    user = await create_user(db, user_data, hashed_password, project_id=None)
     
     return UserRead.model_validate(user)
 
@@ -57,11 +58,11 @@ async def login(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
-    user_agent: Optional[str] = None
+    user_agent: Optional[str] = None # Consider getting user_agent from Request headers
 ) -> Token:
-    """Login user and return tokens."""
-    # Vérifier l'utilisateur
-    user = await get_user_by_email(db, form_data.username)
+    """Login platform user (project_id=None) and return tokens."""
+    # Verify platform user (project_id=None)
+    user = await get_user_by_email(db, form_data.username, project_id=None)
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -87,6 +88,7 @@ async def login(
         token=refresh_token,
         expires_delta=timedelta(days=7),
         user_agent=user_agent
+        # Consider adding project_id=None here if RefreshToken is scoped
     )
     
     # Définir les cookies
@@ -94,7 +96,7 @@ async def login(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=True, # Set to True in production with HTTPS
         samesite="lax",
         max_age=3600  # 1 heure
     )
@@ -102,7 +104,7 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=True, # Set to True in production with HTTPS
         samesite="lax",
         max_age=604800  # 7 jours
     )
@@ -116,11 +118,14 @@ async def login(
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
     response: Response,
-    user: User = Depends(validate_refresh_token),
-    refresh_token: str = "",
+    user: User = Depends(validate_refresh_token), # validate_refresh_token uses get_user_by_id, which is fine
+    refresh_token: str = "", # Needs to be extracted from cookie or header in validate_refresh_token
     db: AsyncSession = Depends(get_db)
 ) -> Token:
-    """Get a new access token using refresh token."""
+    """Get a new access token using refresh token for the platform user."""
+    # Note: validate_refresh_token ensures the user exists and is active.
+    # We might want to add checks here if refresh tokens become project-scoped.
+    
     # Créer un nouveau access token
     access_token = create_access_token(subject=user.id)
     
@@ -129,27 +134,29 @@ async def refresh_token(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=True, # Set to True in production with HTTPS
         samesite="lax",
         max_age=3600  # 1 heure
     )
     
     return Token(
         access_token=access_token,
-        refresh_token=refresh_token if refresh_token else "",
+        refresh_token=refresh_token if refresh_token else "", # Pass back the original refresh token
         token_type="bearer"
     )
 
 @router.post("/logout")
 async def logout(
     response: Response,
-    refresh_token: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    refresh_token: Optional[str] = None, # Needs to be extracted from cookie or header
+    current_user: User = Depends(get_current_user), # Optional if only revoking provided token
     db: AsyncSession = Depends(get_db)
 ):
-    """Logout user and revoke refresh token."""
+    """Logout platform user and revoke refresh token if provided."""
+    # TODO: Get refresh_token reliably (e.g., from cookie in dependency)
     if refresh_token:
-        await revoke_refresh_token(db, refresh_token)
+        await revoke_refresh_token(db, refresh_token) 
+        # Consider project_id=None if RefreshToken is scoped
     
     # Supprimer les cookies
     response.delete_cookie(key="access_token")
@@ -163,7 +170,9 @@ async def logout_all_devices(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Logout from all devices by revoking all refresh tokens."""
+    """Logout platform user from all devices by revoking all their refresh tokens."""
+    # revoke_user_refresh_tokens targets user_id, which is correct
+    # Consider adding project_id=None if RefreshToken is scoped
     await revoke_user_refresh_tokens(db, current_user.id)
     
     # Supprimer les cookies

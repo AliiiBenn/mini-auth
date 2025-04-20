@@ -62,6 +62,7 @@ async def get_project(
         select(Project)
         .options(selectinload(Project.api_keys))
         .options(selectinload(Project.owner))
+        .options(selectinload(Project.members))
         .where(Project.id == project_id)
     )
     
@@ -82,6 +83,7 @@ async def get_user_projects(
         select(Project)
         .options(selectinload(Project.api_keys))
         .options(selectinload(Project.owner))
+        .options(selectinload(Project.members))
         .where(Project.owner_id == owner_id)
         .offset(skip)
         .limit(limit)
@@ -99,6 +101,7 @@ async def get_projects(
         select(Project)
         .options(selectinload(Project.api_keys))
         .options(selectinload(Project.owner))
+        .options(selectinload(Project.members))
         .offset(skip)
         .limit(limit)
     )
@@ -117,6 +120,7 @@ async def update_project(
         select(Project)
         .options(selectinload(Project.api_keys))
         .options(selectinload(Project.owner))
+        .options(selectinload(Project.members))
         .where(Project.id == project_id)
     )
     
@@ -141,6 +145,7 @@ async def update_project(
         select(Project)
         .options(selectinload(Project.api_keys))
         .options(selectinload(Project.owner))
+        .options(selectinload(Project.members))
         .where(Project.id == project_id)
     )
     result = await db.execute(query)
@@ -163,37 +168,19 @@ async def delete_project(
 async def add_project_member(
     db: AsyncSession,
     project_id: str,
-    member_data: ProjectMemberCreate,
-    api_key: str
+    member_data: ProjectMemberCreate
 ) -> Optional[ProjectMember]:
-    """Add a new member to a project."""
-    # Vérifier que le projet existe et que la clé API est valide
-    query = (
-        select(Project)
-        .options(selectinload(Project.api_keys))
-        .where(Project.id == project_id)
-    )
-    result = await db.execute(query)
-    project = result.scalar_one_or_none()
-
-    if not project:
-        return None
-
-    # Vérifier que la clé API est valide et active
-    valid_key = any(
-        k.key == api_key and k.is_active
-        for k in project.api_keys
-    )
-    if not valid_key:
-        return None
-
+    """Add a new member to a project. Assumes caller has verified ownership."""
     # Vérifier que l'utilisateur existe
-    user = await db.execute(select(User).where(User.id == member_data.user_id))
-    if not user.scalar_one_or_none():
+    user_result = await db.execute(select(User).where(User.id == member_data.user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        # Indicate user not found specifically
+        # Raise exception or return a specific value? Returning None for now.
         return None
 
     # Vérifier si l'utilisateur est déjà membre
-    existing_member = await db.execute(
+    existing_member_result = await db.execute(
         select(ProjectMember).where(
             and_(
                 ProjectMember.project_id == project_id,
@@ -201,7 +188,9 @@ async def add_project_member(
             )
         )
     )
-    if existing_member.scalar_one_or_none():
+    if existing_member_result.scalar_one_or_none():
+        # Indicate member already exists
+        # Raise exception or return a specific value? Returning None for now.
         return None
 
     # Créer le nouveau membre
@@ -231,32 +220,11 @@ async def get_project_members(
 async def remove_project_member(
     db: AsyncSession,
     project_id: str,
-    user_id: str,
-    api_key: str
+    user_id: str
 ) -> bool:
-    """Remove a member from a project."""
-    # Vérifier que le projet existe et que la clé API est valide
-    query = (
-        select(Project)
-        .options(selectinload(Project.api_keys))
-        .where(Project.id == project_id)
-    )
-    result = await db.execute(query)
-    project = result.scalar_one_or_none()
-
-    if not project:
-        return False
-
-    # Vérifier que la clé API est valide et active
-    valid_key = any(
-        k.key == api_key and k.is_active
-        for k in project.api_keys
-    )
-    if not valid_key:
-        return False
-
+    """Remove a member from a project. Assumes caller has verified ownership."""
     # Supprimer le membre
-    query = (
+    member_result = await db.execute(
         select(ProjectMember)
         .where(
             and_(
@@ -265,11 +233,10 @@ async def remove_project_member(
             )
         )
     )
-    result = await db.execute(query)
-    member = result.scalar_one_or_none()
+    member = member_result.scalar_one_or_none()
 
     if not member:
-        return False
+        return False # Member not found
 
     await db.delete(member)
     await db.commit()
@@ -279,32 +246,11 @@ async def update_project_member_role(
     db: AsyncSession,
     project_id: str,
     user_id: str,
-    new_role: str,
-    api_key: str
+    new_role: str
 ) -> Optional[ProjectMember]:
-    """Update a project member's role."""
-    # Vérifier que le projet existe et que la clé API est valide
-    query = (
-        select(Project)
-        .options(selectinload(Project.api_keys))
-        .where(Project.id == project_id)
-    )
-    result = await db.execute(query)
-    project = result.scalar_one_or_none()
-
-    if not project:
-        return None
-
-    # Vérifier que la clé API est valide et active
-    valid_key = any(
-        k.key == api_key and k.is_active
-        for k in project.api_keys
-    )
-    if not valid_key:
-        return None
-
+    """Update a project member's role. Assumes caller has verified ownership."""
     # Mettre à jour le rôle du membre
-    query = (
+    member_result = await db.execute(
         select(ProjectMember)
         .where(
             and_(
@@ -313,11 +259,10 @@ async def update_project_member_role(
             )
         )
     )
-    result = await db.execute(query)
-    member = result.scalar_one_or_none()
+    member = member_result.scalar_one_or_none()
 
     if not member:
-        return None
+        return None # Member not found
 
     member.role = new_role
     await db.commit()

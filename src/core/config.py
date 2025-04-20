@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Mini Auth API"
     
     # Security
-    DASHBOARD_SECRET_KEY: str = "your-super-secret-key-for-dashboard"
+    # DASHBOARD_SECRET_KEY: str = "your-super-secret-key-for-dashboard" # Removed
     JWT_SECRET_KEY: str = "your-super-secret-key-for-jwt"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key"
     
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./mini_auth.db"
+    DATABASE_URL: str = "postgresql+asyncpg://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST/YOUR_DB_NAME?sslmode=require"
     
     # Email Settings
     MAIL_USERNAME: str = "your-email@example.com"
@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = 'ignore'
 
 @lru_cache()
 def get_settings():

@@ -1,13 +1,19 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker, AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase
+from src.core.config import get_settings # Import settings
 
-# Utilisation de SQLite pour le développement
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./mini_auth.db"
+# Get settings instance
+settings = get_settings()
 
-# Create async engine
+# Clean the DATABASE_URL to remove sslmode if present, as it's handled by connect_args
+cleaned_db_url = settings.DATABASE_URL.split('?')[0]
+
+# Create async engine using cleaned DATABASE_URL from settings
+# Pass ssl argument via connect_args for asyncpg
 engine = create_async_engine(
-    SQLALCHEMY_DATABASE_URL,
-    echo=True,
+    cleaned_db_url,
+    echo=True, # Set to False in production for less noise
+    connect_args={"ssl": "require"} # Correct way to pass ssl for asyncpg
 )
 
 # Create async session factory
@@ -33,11 +39,13 @@ async def get_db():
 
 # Initialize database
 async def init_db():
-    """Create all tables in the database."""
+    """Create all tables in the database if they don't exist."""
     async with engine.begin() as conn:
-        # Create all tables
+        # Create all tables defined inheriting from Base
         await conn.run_sync(Base.metadata.create_all)
 
-# Export all models to ensure they are registered with Base.metadata
-from src.models.user import User, RefreshToken
-from src.models.project import Project, ProjectApiKey 
+# REMOVED: Export all models to ensure they are registered with Base.metadata
+# This caused circular imports with Alembic.
+# Models are imported in alembic/env.py for migration detection.
+# from src.models.user import User, RefreshToken
+# from src.models.project import Project, ProjectApiKey, ProjectMember 

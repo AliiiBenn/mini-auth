@@ -2,8 +2,9 @@ from typing import Optional, List
 from datetime import datetime, UTC
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from src.models.project import ProjectApiKey
+from src.models.project import ProjectApiKey, Project
 from src.core.security.tokens import generate_project_api_key
 
 async def create_api_key(
@@ -36,12 +37,32 @@ async def get_project_api_keys(
 
 async def get_api_key(
     db: AsyncSession,
-    key: str
+    key: str,
+    load_project: bool = False
 ) -> Optional[ProjectApiKey]:
     """Get an API key by its value."""
     query = select(ProjectApiKey).where(ProjectApiKey.key == key)
+    if load_project:
+        query = query.options(selectinload(ProjectApiKey.project))
     result = await db.execute(query)
     return result.scalar_one_or_none()
+
+async def validate_project_api_key(
+    db: AsyncSession,
+    key: str
+) -> Optional[Project]:
+    """Validate a project API key and return the associated Project if active."""
+    api_key_obj = await get_api_key(db, key, load_project=True)
+    if not api_key_obj:
+        return None
+    if not api_key_obj.is_active:
+        return None
+    if not api_key_obj.project:
+        return None
+    if not api_key_obj.project.is_active:
+        return None
+    
+    return api_key_obj.project
 
 async def deactivate_api_key(
     db: AsyncSession,
