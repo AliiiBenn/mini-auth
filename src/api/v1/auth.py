@@ -22,6 +22,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# --- Helper Function for Async DB Operation ---
+async def _store_refresh_token_async(
+    user_id: str,
+    token: str,
+    expires_delta: timedelta,
+    user_agent: Optional[str],
+    db: AsyncSession = Depends(get_db) # Use standard async dependency
+):
+    """Helper to store refresh token using an async session managed by FastAPI."""
+    logger.info(f"[HELPER] Storing refresh token for user: {user_id}")
+    await create_db_refresh_token(
+        db=db,
+        user_id=user_id,
+        token=token,
+        expires_delta=expires_delta,
+        user_agent=user_agent
+    )
+    logger.info(f"[HELPER] Refresh token stored successfully for user: {user_id}")
+
 @router.post("/register", response_model=UserRead)
 async def register(
     user_data: UserCreate,
@@ -62,13 +81,13 @@ async def register(
 async def login(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db_sync),
+    db: Session = Depends(get_db_sync), # Use sync dependency for user lookup
     user_agent: Optional[str] = None
 ) -> Token:
     """Login platform user (project_id=None) and return tokens."""
     try:
         logger.info(f"Attempting login for user: {form_data.username}")
-        # Verify platform user (project_id=None) using sync function
+        # Verify platform user using sync function
         user = get_user_by_email_sync(db, form_data.username, project_id=None)
         logger.info(f"User found: {bool(user)}")
         
@@ -95,23 +114,14 @@ async def login(
         refresh_token = create_refresh_token(subject=user.id)
         logger.info(f"Tokens created for user: {user.email}")
         
-        # Storing the refresh token needs the ASYNC session
-        # We need to get an async session here specifically for this call
-        # This mixes dependencies, which isn't ideal but necessary for this fix
-        async_db: AsyncSession = await anext(get_db())
-        try:
-            logger.info(f"Storing refresh token for user: {user.email}")
-            await create_db_refresh_token(
-                db=async_db,
-                user_id=user.id,
-                token=refresh_token,
-                expires_delta=timedelta(days=7),
-                user_agent=user_agent
-            )
-            logger.info(f"Refresh token stored successfully for user: {user.email}")
-        finally:
-            await async_db.close()
-        
+        # Store the refresh token using the async helper function
+        await _store_refresh_token_async(
+            user_id=user.id,
+            token=refresh_token,
+            expires_delta=timedelta(days=7), # TODO: Use settings
+            user_agent=user_agent
+        )
+                
         # Cookie setting is fine
         response.set_cookie(
             key="access_token",
