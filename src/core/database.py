@@ -11,7 +11,7 @@ cleaned_db_url = settings.DATABASE_URL.split('?')[0]
 
 # --- Async Configuration ---
 async_engine = create_async_engine(
-    settings.DATABASE_URL, # Use original URL with query params for asyncpg
+    cleaned_db_url, # Use cleaned URL
     echo=True,
     connect_args={"ssl": "require"}, # SSL handled via connect_args
     pool_recycle=1800
@@ -26,11 +26,8 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 # --- Sync Configuration ---
-# Use cleaned URL (without sslmode query param)
-# psycopg2 (default sync driver for postgresql://) handles sslmode in the URL
-sync_db_url = settings.DATABASE_URL # Assume DATABASE_URL includes sslmode=require for sync driver
 sync_engine = create_engine(
-    sync_db_url,
+    cleaned_db_url, # Use cleaned URL
     echo=True,
     pool_recycle=1800
 )
