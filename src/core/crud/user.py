@@ -3,9 +3,12 @@ from typing import Optional, List
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+import logging
 
 from src.models.user import User
 from src.schemas.user import UserCreate, UserUpdate
+
+logger = logging.getLogger(__name__)
 
 async def get_user_by_email(
     db: AsyncSession,
@@ -13,14 +16,23 @@ async def get_user_by_email(
     project_id: Optional[str] = None
 ) -> Optional[User]:
     """Get a user by email, scoped by project_id if provided."""
+    logger.debug(f"Building query for user email={email}, project_id={project_id}")
     query = select(User).where(
         and_(
             User.email == email,
             User.project_id == project_id
         )
     )
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+    logger.debug(f"Executing query for user email={email}, project_id={project_id}")
+    try:
+        result = await db.execute(query)
+        logger.debug(f"Query execution finished for user email={email}, project_id={project_id}. Fetching result.")
+        user = result.scalar_one_or_none()
+        logger.debug(f"Returning user: {bool(user)} for email={email}, project_id={project_id}")
+        return user
+    except Exception as e:
+        logger.exception(f"Exception during get_user_by_email for {email}, project_id={project_id}: {e}")
+        raise
 
 async def get_user_by_id(
     db: AsyncSession,
