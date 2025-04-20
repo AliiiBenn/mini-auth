@@ -17,20 +17,21 @@ app = FastAPI(
 )
 
 # Setup CORS middleware
-# TODO: Replace "*" with your frontend origin in production
+# Configure allowed origins
 origins = [
-    "*", # Allows all origins for development
-    # Add your frontend URL here for production, e.g.:
-    # "http://localhost:3000", 
-    # "https://your-dashboard.com",
+    "http://127.0.0.1:3000", # Allow your local development frontend
+    "http://localhost:3000",  # Also allow localhost commonly used for dev
+    # Add your Vercel frontend deployment URL here when known
+    # e.g., "https://your-dashboard-frontend.vercel.app"
+    # Avoid using "*" in production if allow_credentials=True
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins, # Use the configured list
+    allow_credentials=True, # Allow cookies
+    allow_methods=["*"], # Allow all standard methods
+    allow_headers=["*"], # Allow all headers
 )
 
 app.include_router(api_v1_router)
