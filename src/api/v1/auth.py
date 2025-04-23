@@ -4,14 +4,17 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import async_sessionmaker
+# Remove sync session imports if no longer needed elsewhere
+# from sqlalchemy.orm import Session 
+# from sqlalchemy.orm import sessionmaker
+# from sqlalchemy.ext.asyncio import async_sessionmaker 
 
-from src.core.database import get_db, get_db_sync, get_async_session_factory
+# Use get_db for async session, remove sync and factory dependencies
+from src.core.database import get_db 
 from src.core.security.password import hash_password, verify_password, is_password_strong
 from src.core.security.jwt import create_access_token, create_refresh_token
-from src.core.crud.user import get_user_by_email, get_user_by_email_sync, create_user, get_user_by_id
+# Use async get_user_by_email
+from src.core.crud.user import get_user_by_email, create_user, get_user_by_id 
 from src.core.crud.auth import create_refresh_token as create_db_refresh_token
 from src.core.crud.auth import revoke_refresh_token, revoke_user_refresh_tokens
 from src.core.dependencies.auth import get_current_user, validate_refresh_token
@@ -62,17 +65,19 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
-    response: Response,
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db_sync: Session = Depends(get_db_sync), # Use sync dependency for user lookup
-    async_session_factory: async_sessionmaker[AsyncSession] = Depends(get_async_session_factory), # Inject async factory
-    user_agent: Optional[str] = None
+    # Arguments without defaults first
+    response: Response, 
+    request: Request,
+    # Arguments with defaults (Depends provides a default factory)
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: AsyncSession = Depends(get_db), 
 ) -> Token:
     """Login platform user (project_id=None) and return tokens."""
+    user_agent: Optional[str] = request.headers.get("user-agent")
     try:
         logger.info(f"Attempting login for user: {form_data.username}")
-        # Verify platform user using sync function
-        user = get_user_by_email_sync(db_sync, form_data.username, project_id=None) # Use sync db
+        # Verify platform user using the standard async session
+        user = await get_user_by_email(db, form_data.username, project_id=None) # Use async db and function
         logger.info(f"User found: {bool(user)}")
         
         if not user or not verify_password(form_data.password, user.hashed_password):
@@ -97,17 +102,17 @@ async def login(
         refresh_token = create_refresh_token(subject=user.id)
         logger.info(f"Tokens created for user: {user.email}")
         
-        # Store the refresh token using a managed async session from the factory
-        async with async_session_factory() as async_session:
-            logger.info(f"Storing refresh token for user: {user.email} using managed async session")
-            await create_db_refresh_token(
-                db=async_session, # Pass the created async session
-                user_id=user.id,
-                token=refresh_token,
-                expires_delta=timedelta(days=7), # TODO: Use settings
-                user_agent=user_agent
-            )
-            logger.info(f"Refresh token stored successfully for user: {user.email}")
+        # Store the refresh token using the standard async session
+        # Remove the 'async with async_session_factory()' block
+        logger.info(f"Storing refresh token for user: {user.email} using standard async session")
+        await create_db_refresh_token(
+            db=db, # Pass the standard async session from Depends(get_db)
+            user_id=user.id,
+            token=refresh_token,
+            expires_delta=timedelta(days=7), # TODO: Use settings
+            user_agent=user_agent
+        )
+        logger.info(f"Refresh token stored successfully for user: {user.email}")
                 
         # Cookie setting is fine
         response.set_cookie(
