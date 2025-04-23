@@ -48,15 +48,18 @@ async def get_user_by_id(
         # .options(selectinload(User.project))
         .where(User.id == user_id)
     )
-    # The error occurred around here previously
-    logger.debug(f"Executing simplified query for user ID: {user_id}")
+    logger.debug(f"Executing simplified query for user ID: {user_id} within explicit transaction")
+    user: Optional[User] = None
     try:
-        result = await db.execute(query)
-        user = result.scalar_one_or_none()
-        logger.debug(f"Simplified query executed. User found: {bool(user)}")
+        # Wrap the execution in an explicit transaction block
+        async with db.begin():
+            result = await db.execute(query)
+            user = result.scalar_one_or_none()
+        logger.debug(f"Simplified query executed within transaction. User found: {bool(user)}")
         return user
     except Exception as e:
-        logger.exception(f"Exception during simplified get_user_by_id for {user_id}: {e}")
+        # Log before raising
+        logger.exception(f"Exception during simplified get_user_by_id (explicit transaction) for {user_id}: {e}")
         raise
 
 async def create_user(
