@@ -12,7 +12,7 @@ cleaned_db_url = settings.DATABASE_URL.split('?')[0]
 # --- Async Configuration ---
 async_engine = create_async_engine(
     cleaned_db_url, # Use cleaned URL
-    echo=True,
+    echo=False, # Turn off echoing
     connect_args={"ssl": "require"}, # SSL handled via connect_args
     pool_recycle=1800
 )
@@ -38,7 +38,7 @@ sync_db_url = sync_db_url_base.split('?')[0]
 
 sync_engine = create_engine(
     sync_db_url,
-    echo=True,
+    echo=False, # Turn off echoing
     pool_recycle=1800
     # Note: psycopg2 handles sslmode within the DSN string itself or via service files/env vars,
     # it doesn't typically take connect_args like asyncpg for basic sslmode.
