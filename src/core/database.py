@@ -14,7 +14,8 @@ async_engine = create_async_engine(
     cleaned_db_url, # Use cleaned URL
     echo=False, # Turn off echoing
     connect_args={"ssl": "require"}, # SSL handled via connect_args
-    pool_recycle=1800
+    pool_recycle=1800,
+    pool_pre_ping=True # Add pre-ping to ensure connection validity
 )
 
 AsyncSessionLocal = async_sessionmaker(

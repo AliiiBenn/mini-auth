@@ -65,7 +65,7 @@ def run_migrations_offline() -> None:
 
     context.configure(
         url=cleaned_url, # Use cleaned URL
-        target_metadata=target_metadata, 
+        target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         # Include schemas associated with MetaData if needed, especially for PostgreSQL

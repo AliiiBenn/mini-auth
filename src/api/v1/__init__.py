@@ -10,6 +10,6 @@ router = APIRouter(prefix="/api/v1")
 # Routes that don't need dashboard authentication
 router.include_router(auth_router)
 router.include_router(users_router)
-router.include_router(projects_router)
+router.include_router(projects_router) 
 router.include_router(client_auth_router)
 # router.include_router(dashboard_router) # Removed 
