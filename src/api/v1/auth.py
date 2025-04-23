@@ -1,6 +1,6 @@
 import logging # Import logging
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, cast
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,14 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Use get_db for async session, remove sync and factory dependencies
 from src.core.database import get_db 
 from src.core.security.password import hash_password, verify_password, is_password_strong
-from src.core.security.jwt import create_access_token, create_refresh_token
+from src.core.security.jwt import create_access_token, create_refresh_token, decode_token, verify_token_type
 # Use async get_user_by_email
 from src.core.crud.user import get_user_by_email, create_user, get_user_by_id 
-from src.core.crud.auth import create_refresh_token as create_db_refresh_token
-from src.core.crud.auth import revoke_refresh_token, revoke_user_refresh_tokens
-from src.core.dependencies.auth import get_current_user, validate_refresh_token
+from src.core.crud.auth import (
+    create_refresh_token as create_db_refresh_token,
+    get_refresh_token,
+    revoke_refresh_token,
+    revoke_user_refresh_tokens
+)
+from src.core.dependencies.auth import get_current_user
 from src.schemas.user import UserCreate, UserRead
-from src.schemas.auth import Token
+from src.schemas.auth import Token, TokenRefresh
 from src.models.user import User
 
 # Setup logger
@@ -114,25 +118,8 @@ async def login(
         )
         logger.info(f"Refresh token stored successfully for user: {user.email}")
                 
-        # Cookie setting is fine
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            secure=True, # Set to True in production with HTTPS
-            samesite="none",
-            max_age=3600  # 1 heure
-        )
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=True, # Set to True in production with HTTPS
-            samesite="none",
-            max_age=604800  # 7 jours
-        )
-        logger.info(f"Cookies set for user: {user.email}")
-        
+        logger.info(f"Returning tokens in response body for user: {user.email}")
+    
         return Token(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -148,52 +135,102 @@ async def login(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    response: Response,
-    user: User = Depends(validate_refresh_token), # validate_refresh_token uses get_user_by_id, which is fine
-    refresh_token: str = "", # Needs to be extracted from cookie or header in validate_refresh_token
+    # Remove response: Response
+    # Accept refresh token from body using TokenRefresh schema
+    refresh_data: TokenRefresh, 
     db: AsyncSession = Depends(get_db)
 ) -> Token:
-    """Get a new access token using refresh token for the platform user."""
-    # Note: validate_refresh_token ensures the user exists and is active.
-    # We might want to add checks here if refresh tokens become project-scoped.
+    """Get a new access token using refresh token provided in the request body."""
+    token = refresh_data.refresh_token
+
+    # 1. Check if the refresh token exists and is valid in DB
+    db_refresh_token = await get_refresh_token(db, token)
+    if not db_refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token (DB check)",
+        )
+
+    # 2. Decode the refresh token to verify type and get user ID
+    try:
+        if not verify_token_type(token, "refresh"):
+            # Should not happen if DB check passed, but for safety
+            raise HTTPException(status_code=401, detail="Invalid token type") 
+        payload = decode_token(token) # Checks expiry as well
+        user_id = cast(str, payload.get("sub"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except HTTPException as e:
+        # If decode fails (e.g., expired), revoke from DB and raise
+        # This handles cases where the token might be expired but not yet cleaned up
+        await revoke_refresh_token(db, token)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail=f"Refresh token invalid: {e.detail}"
+        ) from e
+
+    # 3. Get the user associated with the token
+    user = await get_user_by_id(db, user_id)
+    # Check user existence and activity (db_refresh_token confirms token validity)
+    if not user or not user.is_active:
+        # If user is gone or inactive, the refresh token is effectively invalid
+        await revoke_refresh_token(db, token) # Revoke the now useless token
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    # 4. Platform users specific check (ensure user is NOT project-scoped)
+    # This check is specific to the platform auth vs client auth
+    if user.project_id is not None:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Refresh token belongs to a project user, use client refresh endpoint.",
+        )
+
+    # 5. Issue a new access token
+    new_access_token = create_access_token(subject=user.id)
     
-    # Créer un nouveau access token
-    access_token = create_access_token(subject=user.id)
+    # REMOVE Cookie setting
+    # response.set_cookie(
+    #     key="access_token",
+    #     value=access_token,
+    #     httponly=True,
+    #     secure=True, # Set to True in production with HTTPS
+    #     samesite="lax", # Or None if needed, but maybe not required for refresh?
+    #     max_age=3600  # 1 heure
+    # )
     
-    # Définir le cookie access_token
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True, # Set to True in production with HTTPS
-        samesite="lax",
-        max_age=3600  # 1 heure
-    )
-    
+    # 6. Return new access token and original refresh token in body
     return Token(
-        access_token=access_token,
-        refresh_token=refresh_token if refresh_token else "", # Pass back the original refresh token
+        access_token=new_access_token,
+        refresh_token=token, # Return the same refresh token
         token_type="bearer"
     )
 
-@router.post("/logout")
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    response: Response,
-    refresh_token: Optional[str] = None, # Needs to be extracted from cookie or header
-    current_user: User = Depends(get_current_user), # Optional if only revoking provided token
+    # Remove response: Response
+    # Accept refresh token from body using TokenRefresh schema
+    refresh_data: TokenRefresh, 
+    # Remove current_user dependency, not needed to revoke a specific token
+    # current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
-    """Logout platform user and revoke refresh token if provided."""
-    # TODO: Get refresh_token reliably (e.g., from cookie in dependency)
-    if refresh_token:
-        await revoke_refresh_token(db, refresh_token) 
-        # Consider project_id=None if RefreshToken is scoped
+) -> None: # Return None for 204 No Content
+    """Logout platform user by revoking the provided refresh token."""
+    token_to_revoke = refresh_data.refresh_token
     
-    # Supprimer les cookies
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    # Attempt to revoke the token from the database
+    # revoke_refresh_token handles the case where the token doesn't exist gracefully
+    revoked = await revoke_refresh_token(db, token_to_revoke)
+    logger.info(f"Logout attempt for refresh token: {token_to_revoke[:10]}... Revoked: {revoked}")
     
-    return {"detail": "Successfully logged out"}
+    # REMOVE Cookie deletion
+    # response.delete_cookie(key="access_token")
+    # response.delete_cookie(key="refresh_token")
+    
+    # Return nothing for 204 No Content
+    return None
 
 @router.post("/logout-all")
 async def logout_all_devices(
