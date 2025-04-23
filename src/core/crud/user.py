@@ -4,6 +4,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, Session
 import logging
+import asyncio # Import asyncio
 
 from src.models.user import User
 from src.schemas.user import UserCreate, UserUpdate
@@ -39,6 +40,8 @@ async def get_user_by_id(
     user_id: str
 ) -> Optional[User]:
     """Get a user by ID. Temporarily removed relationship loading."""
+    current_loop_id = id(asyncio.get_running_loop())
+    logger.debug(f"[get_user_by_id] User ID: {user_id}. Loop ID: {current_loop_id}. Session Active: {db.is_active}")
     query = (
         select(User)
         # Temporarily comment out selectinload to test for loop conflict
@@ -53,13 +56,17 @@ async def get_user_by_id(
     try:
         # Wrap the execution in an explicit transaction block
         async with db.begin():
+            transaction_loop_id = id(asyncio.get_running_loop())
+            logger.debug(f"[get_user_by_id] User ID: {user_id}. Inside transaction. Loop ID: {transaction_loop_id}. In Transaction: {db.in_transaction()}")
             result = await db.execute(query)
             user = result.scalar_one_or_none()
-        logger.debug(f"Simplified query executed within transaction. User found: {bool(user)}")
+            logger.debug(f"[get_user_by_id] Query executed. User found: {bool(user)}")
+        logger.debug(f"[get_user_by_id] Transaction finished. User found: {bool(user)}")
         return user
     except Exception as e:
         # Log before raising
-        logger.exception(f"Exception during simplified get_user_by_id (explicit transaction) for {user_id}: {e}")
+        exception_loop_id = id(asyncio.get_running_loop())
+        logger.exception(f"[get_user_by_id] Exception for {user_id}. Loop ID: {exception_loop_id}. Error: {e}")
         raise
 
 async def create_user(

@@ -3,6 +3,7 @@ from fastapi import Depends, HTTPException, status, Cookie, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 import logging # Import logging
+import asyncio # Import asyncio
 
 from src.core.database import get_async_session_factory
 from src.core.security.jwt import decode_token, verify_token_type
@@ -26,13 +27,14 @@ async def get_current_user(
     Vérifie d'abord le header Authorization, puis le cookie access_token.
     Crée sa propre session DB à partir de la factory.
     """
-    logger.debug("Attempting to get current user (using factory-created session)...")
+    dependency_loop_id = id(asyncio.get_running_loop())
+    logger.debug(f"[get_current_user] Attempting (using factory-created session). Loop ID: {dependency_loop_id}")
     # Récupérer le token soit du header soit du cookie
     token = credentials.credentials if credentials else access_token
-    logger.debug(f"Token source: {'Header' if credentials else 'Cookie' if access_token else 'None'}")
+    logger.debug(f"[get_current_user] Token source: {'Header' if credentials else 'Cookie' if access_token else 'None'}")
     
     if not token:
-        logger.warning("Authentication failed: No token provided.")
+        logger.warning("[get_current_user] Authentication failed: No token provided.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -79,13 +81,16 @@ async def get_current_user(
     # Récupérer l'utilisateur en utilisant une session créée localement
     user: Optional[User] = None
     try:
-        logger.debug(f"Creating local session from factory for user ID: {user_id}...")
+        session_creation_loop_id = id(asyncio.get_running_loop())
+        logger.debug(f"[get_current_user] Creating local session. User ID: {user_id}. Loop ID: {session_creation_loop_id}")
         async with async_session_factory() as session:
-            logger.debug(f"Fetching user with ID: {user_id} using local session...")
+            db_call_loop_id = id(asyncio.get_running_loop())
+            logger.debug(f"[get_current_user] Fetching user via get_user_by_id. User ID: {user_id}. Loop ID: {db_call_loop_id}")
             user = await get_user_by_id(session, user_id) # Pass the local session
-            logger.debug(f"Local session fetch complete. User found: {bool(user)}")
+            logger.debug(f"[get_current_user] Local session fetch complete. User found: {bool(user)}")
     except Exception as e:
-        logger.exception(f"Database error while fetching user ID: {user_id} using local session")
+        exception_loop_id = id(asyncio.get_running_loop())
+        logger.exception(f"[get_current_user] Database error for {user_id}. Loop ID: {exception_loop_id}. Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error retrieving user."
