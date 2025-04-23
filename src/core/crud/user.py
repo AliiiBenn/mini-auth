@@ -38,17 +38,26 @@ async def get_user_by_id(
     db: AsyncSession,
     user_id: str
 ) -> Optional[User]:
-    """Get a user by ID with relationships."""
+    """Get a user by ID. Temporarily removed relationship loading."""
     query = (
         select(User)
-        .options(selectinload(User.refresh_tokens))
-        .options(selectinload(User.projects_owned))
-        .options(selectinload(User.project_memberships))
-        .options(selectinload(User.project))
+        # Temporarily comment out selectinload to test for loop conflict
+        # .options(selectinload(User.refresh_tokens))
+        # .options(selectinload(User.projects_owned))
+        # .options(selectinload(User.project_memberships))
+        # .options(selectinload(User.project))
         .where(User.id == user_id)
     )
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+    # The error occurred around here previously
+    logger.debug(f"Executing simplified query for user ID: {user_id}")
+    try:
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        logger.debug(f"Simplified query executed. User found: {bool(user)}")
+        return user
+    except Exception as e:
+        logger.exception(f"Exception during simplified get_user_by_id for {user_id}: {e}")
+        raise
 
 async def create_user(
     db: AsyncSession,
