@@ -46,6 +46,10 @@ async def on_startup():
 async def health_check():
     return {"status": "healthy"}
 
+@app.get("/")
+async def read_root():
+    return {"message": f"Welcome to {settings.PROJECT_NAME}"}
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000)) 
     uvicorn.run(
